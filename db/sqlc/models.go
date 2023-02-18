@@ -18,8 +18,8 @@ type Account struct {
 }
 
 type Entry struct {
-	ID        int32         `json:"id"`
-	AccountID sql.NullInt32 `json:"account_id"`
+	ID        int32 `json:"id"`
+	AccountID int32 `json:"account_id"`
 	// can be negative or positive
 	Amount    int64     `json:"amount"`
 	CreatedAt time.Time `json:"created_at"`

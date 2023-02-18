@@ -8,7 +8,7 @@ CREATE TABLE "accounts" (
 
 CREATE TABLE "entries" (
   "id" serial PRIMARY KEY,
-  "account_id" int,
+  "account_id" int NOT NULL,
   "amount" bigint NOT NULL,
   "created_at" timestamptz NOT NULL DEFAULT (now())
 );
