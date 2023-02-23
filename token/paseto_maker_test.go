@@ -47,5 +47,12 @@ func TestExpiredPasetoToken(t *testing.T) {
 }
 
 func TestInvalidPasetoToken(t *testing.T) {
-	maker, err := NewPasetoMaker()
+	maker, err := NewPasetoMaker(util.RandomString(32))
+	require.NoError(t, err)
+
+	token := util.RandomString(32)
+	payload, err := maker.VerifyToken(token)
+	require.Error(t, err)
+	require.EqualError(t, err, ErrInvalidToken.Error())
+	require.Nil(t, payload, nil)
 }
