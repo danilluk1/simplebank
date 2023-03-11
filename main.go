@@ -8,6 +8,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/hibiken/asynq"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/danilluk1/simplebank/gapi"
 	"github.com/danilluk1/simplebank/pb"
 	"github.com/danilluk1/simplebank/util"
+	"github.com/danilluk1/simplebank/worker"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
@@ -45,11 +47,28 @@ func main() {
 
 	store := db.NewStore(conn)
 
+	redisOpt := asynq.RedisClientOpt{
+		Addr: config.RedisAddress,
+	}
+
+	taskDistributor := worker.NewRedisTaskDistributor(redisOpt)
+
 	wg := sync.WaitGroup{}
-	wg.Add(2)
-	go runGatewayServer(&wg, config, store)
-	go runGrpcServer(&wg, config, store)
+	wg.Add(3)
+	go runTaskProcessor(&wg, redisOpt, store)
+	go runGatewayServer(&wg, config, store, taskDistributor)
+	go runGrpcServer(&wg, config, store, taskDistributor)
 	wg.Wait()
+}
+
+func runTaskProcessor(wg *sync.WaitGroup, redisOpt asynq.RedisClientOpt, store db.Store) {
+	defer wg.Done()
+	taskProcessor := worker.NewRedisTaskProcessor(redisOpt, store)
+	log.Info().Msg("start task processor")
+	err := taskProcessor.Start()
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to run task processor")
+	}
 }
 
 func runDBMigation(migrationURL string, dbSource string) {
@@ -65,9 +84,9 @@ func runDBMigation(migrationURL string, dbSource string) {
 	log.Info().Msg("db migrate successfully")
 }
 
-func runGrpcServer(wg *sync.WaitGroup, config util.Config, store db.Store) {
+func runGrpcServer(wg *sync.WaitGroup, config util.Config, store db.Store, taskDistributor worker.TaskDistributor) {
 	defer wg.Done()
-	server, err := gapi.NewServer(config, store)
+	server, err := gapi.NewServer(config, store, taskDistributor)
 	if err != nil {
 		log.Fatal().Err(err).Msg("cannot create server:")
 	}
@@ -89,9 +108,9 @@ func runGrpcServer(wg *sync.WaitGroup, config util.Config, store db.Store) {
 	}
 }
 
-func runGatewayServer(wg *sync.WaitGroup, config util.Config, store db.Store) {
+func runGatewayServer(wg *sync.WaitGroup, config util.Config, store db.Store, taskDistributor worker.TaskDistributor) {
 	defer wg.Done()
-	server, err := gapi.NewServer(config, store)
+	server, err := gapi.NewServer(config, store, taskDistributor)
 	if err != nil {
 		log.Fatal().Err(err).Msg("cannot create server:")
 	}
