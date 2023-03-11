@@ -9,6 +9,10 @@ migratedown:
 
 migratedown1:
 	migrate -path db/migration -database "postgresql://test:test@localhost:5432/simplebank?sslmode=disable" -verbose down 1
+
+new_migration:
+	migrate create -ext sql -dir db/migration -seq $(name)
+
 sqlc:
 	sqlc generate
 
@@ -30,4 +34,4 @@ proto:
 		--openapiv2_out=docs/swagger --openapiv2_opt=allow_merge,merge_file_name=simple_bank \
     proto/*.proto
 
-.PHONY: migrateup migratedown sqlc test server mock migratedown1 proto
+.PHONY: migrateup migratedown sqlc test server mock migratedown1 proto new_migration

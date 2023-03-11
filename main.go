@@ -15,6 +15,7 @@ import (
 	"github.com/danilluk1/simplebank/api"
 	db "github.com/danilluk1/simplebank/db/sqlc"
 	"github.com/danilluk1/simplebank/gapi"
+	"github.com/danilluk1/simplebank/mail"
 	"github.com/danilluk1/simplebank/pb"
 	"github.com/danilluk1/simplebank/util"
 	"github.com/danilluk1/simplebank/worker"
@@ -55,15 +56,17 @@ func main() {
 
 	wg := sync.WaitGroup{}
 	wg.Add(3)
-	go runTaskProcessor(&wg, redisOpt, store)
+	go runTaskProcessor(&wg, config, redisOpt, store)
 	go runGatewayServer(&wg, config, store, taskDistributor)
 	go runGrpcServer(&wg, config, store, taskDistributor)
 	wg.Wait()
 }
 
-func runTaskProcessor(wg *sync.WaitGroup, redisOpt asynq.RedisClientOpt, store db.Store) {
+func runTaskProcessor(wg *sync.WaitGroup, config util.Config, redisOpt asynq.RedisClientOpt, store db.Store) {
 	defer wg.Done()
-	taskProcessor := worker.NewRedisTaskProcessor(redisOpt, store)
+	//TODO: must be from config
+	mailer := mail.NewGmailSender("1", "1", "!")
+	taskProcessor := worker.NewRedisTaskProcessor(redisOpt, store, mailer)
 	log.Info().Msg("start task processor")
 	err := taskProcessor.Start()
 	if err != nil {
